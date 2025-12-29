@@ -5,8 +5,6 @@ VisualStudioVersion = 17.1.32421.90
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "cypReference", "cypReference\cypReference.vcxproj", "{555C2DC9-74A2-4F2A-835C-D60E16997070}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "cypOpencvReference", "cypOpencvReference\cypOpencvReference.vcxproj", "{45499EB8-746F-4E9C-80B9-D3D511D6D5B4}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
