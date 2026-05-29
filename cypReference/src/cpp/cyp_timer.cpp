@@ -63,7 +63,7 @@ namespace cyp
 
 		void CallbackTimer::Regist(int miliseconds, std::function<void()>& func)
 		{
-			std::thread([miliseconds, &func]() -> void
+			std::thread([miliseconds, func]() -> void
 				{
 					std::this_thread::sleep_for(std::chrono::milliseconds(miliseconds));
 					func();
@@ -72,7 +72,7 @@ namespace cyp
 
 		void CallbackTimer::Regist_loop(int &miliseconds, std::function<void()>& func, bool& isLoop)
 		{
-			std::thread([miliseconds, &func, &isLoop]() -> void
+			std::thread([miliseconds, func, &isLoop]() -> void
 				{
 					do
 					{

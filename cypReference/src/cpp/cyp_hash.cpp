@@ -131,14 +131,10 @@ namespace cyp
 		template<typename T>
 		std::string Pbkdf2::StrToPbkdf2(const std::string& str, const std::string& salt, unsigned int iterate, float time)
 		{
-			CryptoPP::byte* password_ = new CryptoPP::byte[str.size() + 1]();
-			CryptoPP::byte* salt_ = new CryptoPP::byte[salt.size() + 1]();
-
-			std::copy(str.begin(), str.end(), password_);
-			std::copy(salt.begin(), salt.end(), salt_);
-
-			size_t passwordLen = strlen((const char*)password_);
-			size_t saltLen = strlen((const char*)salt_);
+			const CryptoPP::byte* password_ = reinterpret_cast<const CryptoPP::byte*>(str.data());
+			const CryptoPP::byte* salt_ = reinterpret_cast<const CryptoPP::byte*>(salt.data());
+			size_t passwordLen = str.size();
+			size_t saltLen = salt.size();
 
 			CryptoPP::byte derived[T::DIGESTSIZE];
 
@@ -154,26 +150,18 @@ namespace cyp
 			encoder.Put(derived, sizeof(derived));
 			encoder.MessageEnd();
 
-			delete[] password_;
-			delete[] salt_;
-
 			return result;
 		}
 
 		template<typename T>
 		std::string Hkdf::StrToHkdf(const std::string& str, const std::string& salt, const std::string& info)
 		{
-			CryptoPP::byte* password_ = new CryptoPP::byte[str.size() + 1]();
-			CryptoPP::byte* salt_ = new CryptoPP::byte[salt.size() + 1]();
-			CryptoPP::byte* info_ = new CryptoPP::byte[info.size() + 1]();
-
-			std::copy(str.begin(), str.end(), password_);
-			std::copy(salt.begin(), salt.end(), salt_);
-			std::copy(info.begin(), info.end(), info_);
-
-			size_t passwordLen = strlen((const char*)password_);
-			size_t saltLen = strlen((const char*)salt_);
-			size_t infoLen = strlen((const char*)info_);
+			const CryptoPP::byte* password_ = reinterpret_cast<const CryptoPP::byte*>(str.data());
+			const CryptoPP::byte* salt_ = reinterpret_cast<const CryptoPP::byte*>(salt.data());
+			const CryptoPP::byte* info_ = reinterpret_cast<const CryptoPP::byte*>(info.data());
+			size_t passwordLen = str.size();
+			size_t saltLen = salt.size();
+			size_t infoLen = info.size();
 
 			CryptoPP::byte derived[T::DIGESTSIZE];
 
@@ -186,10 +174,6 @@ namespace cyp
 
 			encoder.Put(derived, sizeof(derived));
 			encoder.MessageEnd();
-
-			delete[] password_;
-			delete[] salt_;
-			delete[] info_;
 
 			return result;
 		}

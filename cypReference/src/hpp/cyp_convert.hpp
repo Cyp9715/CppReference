@@ -21,13 +21,13 @@ namespace cyp
 			template<typename T>
 			void ClassToByteArray(T t, char* output)
 			{
-				int size = sizeof(t);
-
-				for (int i = 0; i < size; ++i)
+				if (output == nullptr)
 				{
-					std::cout << output[i] << std::endl;
+					throw std::invalid_argument("ClassToByteArray() output is null");
 				}
+
+				std::memcpy(output, &t, sizeof(T));
 			}
 		};
 	}
-}	
+}

@@ -31,6 +31,8 @@ namespace cyp
 
 			public:
 				Tcp();
+				Tcp(const Tcp&) = delete;
+				Tcp& operator=(const Tcp&) = delete;
 				~Tcp();
 
 				SOCKET& OpenServer(const u_short serverPort);
@@ -58,6 +60,8 @@ namespace cyp
 
 			public:
 				Udp();
+				Udp(const Udp&) = delete;
+				Udp& operator=(const Udp&) = delete;
 				~Udp();
 
 				void Open_send(const std::string& ip, const u_short port);
@@ -83,6 +87,8 @@ namespace cyp
 
 			public:
 				Udp_multicast();
+				Udp_multicast(const Udp_multicast&) = delete;
+				Udp_multicast& operator=(const Udp_multicast&) = delete;
 				~Udp_multicast();
 
 				void Open_send(const std::string& multicastIp, const u_short port);

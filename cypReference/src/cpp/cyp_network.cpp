@@ -16,9 +16,9 @@ namespace cyp
 
 			Tcp::~Tcp()
 			{
-				closesocket(_listenSocket);
-				closesocket(_serverSocket);
-				closesocket(_clientSocket);
+				if (_listenSocket != INVALID_SOCKET) closesocket(_listenSocket);
+				if (_serverSocket != INVALID_SOCKET) closesocket(_serverSocket);
+				if (_clientSocket != INVALID_SOCKET) closesocket(_clientSocket);
 
 				WSACleanup();
 			}
@@ -90,27 +90,65 @@ namespace cyp
 
 			int Tcp::ReceiveServer(char* msgBuf, int readLen)
 			{
+				if (msgBuf == nullptr || readLen <= 0)
+				{
+					throw "error : invalid receive buffer";
+				}
+
 				return recv(_serverSocket, msgBuf, readLen, 0);
 			}
 
 			int Tcp::ReceiveClient(char* msgBuf, int readLen)
 			{
+				if (msgBuf == nullptr || readLen <= 0)
+				{
+					throw "error : invalid receive buffer";
+				}
+
 				return recv(_clientSocket, msgBuf, readLen, 0);
 			}
 
 			void Tcp::SendServerToClient(const char* msgBuf, int msgLen)
 			{
-				if (send(_serverSocket, msgBuf, msgLen, 0) == SOCKET_ERROR)
+				if (msgBuf == nullptr || msgLen <= 0)
 				{
-					throw "error : server error send";
+					throw "error : invalid send buffer";
+				}
+
+				int totalSendSize = 0;
+
+				while (totalSendSize < msgLen)
+				{
+					int sendSize = send(_serverSocket, msgBuf + totalSendSize, msgLen - totalSendSize, 0);
+
+					if (sendSize <= 0)
+					{
+						throw "error : server error send";
+					}
+
+					totalSendSize += sendSize;
 				}
 			}
 
 			void Tcp::SendClientToServer(const char* msgBuf, int msgLen)
 			{
-				if (send(_clientSocket, msgBuf, msgLen, 0) == SOCKET_ERROR)
+				if (msgBuf == nullptr || msgLen <= 0)
 				{
-					throw "error : client error send";
+					throw "error : invalid send buffer";
+				}
+
+				int totalSendSize = 0;
+
+				while (totalSendSize < msgLen)
+				{
+					int sendSize = send(_clientSocket, msgBuf + totalSendSize, msgLen - totalSendSize, 0);
+
+					if (sendSize <= 0)
+					{
+						throw "error : client error send";
+					}
+
+					totalSendSize += sendSize;
 				}
 			}
 
@@ -125,8 +163,8 @@ namespace cyp
 
 			Udp::~Udp()
 			{
-				closesocket(_sendSocket);
-				closesocket(_recvSocket);
+				if (_sendSocket != INVALID_SOCKET) closesocket(_sendSocket);
+				if (_recvSocket != INVALID_SOCKET) closesocket(_recvSocket);
 
 				WSACleanup();
 			}
@@ -134,6 +172,10 @@ namespace cyp
 			void Udp::Open_send(const std::string& ip, const u_short port)
 			{
 				_sendSocket = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP);
+				if (_sendSocket == INVALID_SOCKET)
+				{
+					throw "error : _sendSocket stop";
+				}
 
 				ZeroMemory(&_recvAddr, sizeof(_recvAddr));
 
@@ -149,6 +191,10 @@ namespace cyp
 			void Udp::Open_receive(const u_short port)
 			{
 				_recvSocket = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP);
+				if (_recvSocket == INVALID_SOCKET)
+				{
+					throw "error : _recvSocket stop";
+				}
 
 				ZeroMemory(&_sendAddr, sizeof(_sendAddr));
 
@@ -165,6 +211,11 @@ namespace cyp
 
 			void Udp::Send(const char* msgBuf, int msgLen)
 			{
+				if (msgBuf == nullptr || msgLen <= 0)
+				{
+					throw "error : invalid send buffer";
+				}
+
 				if (sendto(_sendSocket, msgBuf, msgLen, 0,
 					(struct sockaddr*)&_recvAddr, sizeof(_recvAddr)) == SOCKET_ERROR)
 				{
@@ -174,6 +225,12 @@ namespace cyp
 
 			void Udp::Receive(char* msgBuf, int msgLen)
 			{
+				if (msgBuf == nullptr || msgLen <= 0)
+				{
+					throw "error : invalid receive buffer";
+				}
+
+				int addrlen = sizeof(_recvAddr);
 				int size = recvfrom(_recvSocket, msgBuf, msgLen, 0, (struct sockaddr*)&_recvAddr, &addrlen);
 				if (size < 0)
 				{
@@ -191,8 +248,8 @@ namespace cyp
 
 			Udp_multicast::~Udp_multicast()
 			{
-				closesocket(_sendSocket);
-				closesocket(_recvSocket);
+				if (_sendSocket != INVALID_SOCKET) closesocket(_sendSocket);
+				if (_recvSocket != INVALID_SOCKET) closesocket(_recvSocket);
 
 				WSACleanup();
 			}
@@ -200,6 +257,10 @@ namespace cyp
 			void Udp_multicast::Open_send(const std::string& ip_multicast, const u_short port_multicast)
 			{
 				_sendSocket = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP);
+				if (_sendSocket == INVALID_SOCKET)
+				{
+					throw "error : _sendSocket stop";
+				}
 
 				ZeroMemory(&_sendAddr, sizeof(_sendAddr));
 
@@ -220,6 +281,10 @@ namespace cyp
 			void Udp_multicast::Open_receive(const std::string& ip_multicast, const u_short port_multicast)
 			{
 				_recvSocket = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP);
+				if (_recvSocket == INVALID_SOCKET)
+				{
+					throw "error : _recvSocket stop";
+				}
 
 				if (setsockopt(_recvSocket, SOL_SOCKET, SO_REUSEADDR, (char*)&_setsockoptBuf, sizeof(_setsockoptBuf)) < 0)
 				{
@@ -252,6 +317,11 @@ namespace cyp
 
 			void Udp_multicast::Send(char* msgBuf, int msgLen)
 			{
+				if (msgBuf == nullptr || msgLen <= 0)
+				{
+					throw "error : invalid send buffer";
+				}
+
 				if (sendto(_sendSocket, msgBuf, msgLen, 0,
 					(struct sockaddr*)&_recvAddr, sizeof(_recvAddr)) == SOCKET_ERROR)
 				{
@@ -261,6 +331,11 @@ namespace cyp
 
 			void Udp_multicast::Receive(char* msgbuf, int msgLen)
 			{
+				if (msgbuf == nullptr || msgLen <= 0)
+				{
+					throw "error : invalid receive buffer";
+				}
+
 				int addrlen = sizeof(_recvAddr);
 				if (recvfrom(_recvSocket, msgbuf, msgLen, 0, (struct sockaddr*)&_recvAddr, &addrlen) < 0)
 				{
@@ -273,6 +348,11 @@ namespace cyp
 		{
 			void Reverse(char* start, const int size)
 			{
+				if (start == nullptr || size <= 0)
+				{
+					return;
+				}
+
 				char* startPoint = start;
 				char* endPoint = startPoint + size;
 				std::reverse(startPoint, endPoint);

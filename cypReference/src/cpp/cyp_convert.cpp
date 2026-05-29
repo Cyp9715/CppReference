@@ -24,6 +24,11 @@ namespace cyp
 		
 		std::string Hex::HexToStr(unsigned char* decoded, size_t size)
 		{
+			if (decoded == nullptr && size > 0)
+			{
+				throw std::invalid_argument("HexToStr() input is null");
+			}
+
 			std::string encoded;
 
 			CryptoPP::HexEncoder encoder;

@@ -34,17 +34,11 @@ namespace cyp
 			public:
 				char identifier[4] = { 0x00, 0x47, 0x02, 0x4F };
 				char fileName[256] = { '\0', };
-				unsigned long long fileSize;	// unit, byte
-			};
-
-			class Packet_FileBody
-			{
-			public:
-				char* buffer;
+				unsigned long long fileSize = 0;	// unit, byte
 			};
 
 			void SendHeader(SOCKET& sendSocket, Packet_FileHeader& packet_fileHeader);
-			void SendBody(SOCKET& sendSocket, Packet_FileBody& packet_fileBody, unsigned int packetSize);
+			void SendBody(SOCKET& sendSocket, const char* buffer, unsigned int packetSize);
 
 		public:
 			void SendFile(const u_short port, const std::string sendFilePath);

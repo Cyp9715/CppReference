@@ -10,12 +10,6 @@ namespace cyp
 	{
 		class ScreenShot
 		{
-			HDC hdcScr, hdcMem;
-
-			// PC maximum resolution.
-			const UINT iXResolution = GetDeviceCaps(hdcScr, HORZRES);
-			const UINT iYResolution = GetDeviceCaps(hdcScr, VERTRES);
-
 		private:
 			int GetEncoderClsid(const WCHAR* format, CLSID* pClsid);
 

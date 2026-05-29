@@ -1,5 +1,8 @@
 ﻿#include "cyp_file.hpp"
 
+#include <cmath>
+#include <vector>
+
 namespace cyp
 {
 	namespace file
@@ -29,39 +32,74 @@ namespace cyp
 
 		std::string ReadAllFile(const std::string& fileLoc)
 		{
-			std::ifstream file(fileLoc);
-			std::string buffer = "";
+			std::ifstream file(fileLoc, std::ios::binary);
 
-			if (file.is_open()) {
-				file.seekg(0, std::ios::end);
-				int size = static_cast<int>(file.tellg());
-				buffer.resize(size);
-				file.seekg(0, std::ios::beg);
-				file.read(&buffer[0], size);
-				return buffer;
+			if (!file.is_open())
+			{
+				throw "error : cypReference::file::readAllFile";
 			}
 
-			throw "error : cypReference::file::readAllFile";
+			file.seekg(0, std::ios::end);
+			std::streampos endPos = file.tellg();
+			std::streamoff fileSize = static_cast<std::streamoff>(endPos);
+			if (fileSize < 0)
+			{
+				throw "error : cypReference::file::readAllFile";
+			}
+
+			std::string buffer(static_cast<size_t>(fileSize), '\0');
+			file.seekg(0, std::ios::beg);
+
+			if (!buffer.empty())
+			{
+				file.read(buffer.data(), static_cast<std::streamsize>(buffer.size()));
+				if (file.gcount() != static_cast<std::streamsize>(buffer.size()))
+				{
+					throw "error : cypReference::file::readAllFile";
+				}
+			}
+
+			return buffer;
 		}
 
 		std::string GetFileName(std::string filePath)
 		{
-			return filePath.substr(filePath.find_last_of("/\\") + 1);
+			size_t pos = filePath.find_last_of("/\\");
+			return pos == std::string::npos ? filePath : filePath.substr(pos + 1);
 		}
 
 		void FileCommunication::SendHeader(SOCKET& sendSocket, Packet_FileHeader& packet_fileHeader)
 		{
-			if (send(sendSocket, reinterpret_cast<char*>(&packet_fileHeader), static_cast<int>(sizeof(Packet_FileHeader)), 0) == SOCKET_ERROR)
+			const char* buffer = reinterpret_cast<const char*>(&packet_fileHeader);
+			unsigned int totalSendSize = 0;
+
+			while (totalSendSize < sizeof(Packet_FileHeader))
 			{
-				throw "error : client error Send";
+				int sendSize = send(sendSocket, buffer + totalSendSize, static_cast<int>(sizeof(Packet_FileHeader) - totalSendSize), 0);
+
+				if (sendSize <= 0)
+				{
+					throw "error : client error Send";
+				}
+
+				totalSendSize += static_cast<unsigned int>(sendSize);
 			}
 		}
 
-		void FileCommunication::SendBody(SOCKET& sendSocket, Packet_FileBody& packet_fileBody, unsigned int packetSize)
+		void FileCommunication::SendBody(SOCKET& sendSocket, const char* buffer, unsigned int packetSize)
 		{
-			if (send(sendSocket, reinterpret_cast<char *>(packet_fileBody.buffer), packetSize, 0) == SOCKET_ERROR)
+			unsigned int totalSendSize = 0;
+
+			while (totalSendSize < packetSize)
 			{
-				throw "error : client error Send";
+				int sendSize = send(sendSocket, buffer + totalSendSize, static_cast<int>(packetSize - totalSendSize), 0);
+
+				if (sendSize <= 0)
+				{
+					throw "error : client error Send";
+				}
+
+				totalSendSize += static_cast<unsigned int>(sendSize);
 			}
 		}
 
@@ -72,16 +110,24 @@ namespace cyp
 
 			std::ifstream file(sendFilePath, std::ios::binary);
 			Packet_FileHeader fileHeader;
-			Packet_FileBody fileBody;
 
 			if (file.is_open())
 			{
 				file.seekg(0, std::ios::end);
-				fileHeader.fileSize = file.tellg();
+				std::streampos endPos = file.tellg();
+				std::streamoff fileSize = static_cast<std::streamoff>(endPos);
+				if (fileSize < 0)
+				{
+					throw "error : Unable to read file size.";
+				}
+
+				fileHeader.fileSize = static_cast<unsigned long long>(fileSize);
 				file.seekg(0, std::ios::beg);
 				
 				std::string fileName = GetFileName(sendFilePath);
-				memcpy(fileHeader.fileName, fileName.c_str(), fileName.length());
+				size_t fileNameSize = std::min(fileName.length(), sizeof(fileHeader.fileName) - 1);
+				memcpy(fileHeader.fileName, fileName.c_str(), fileNameSize);
+				fileHeader.fileName[fileNameSize] = '\0';
 
 				unsigned long long loopCount_full = fileHeader.fileSize / MB2;
 				unsigned long long loopCount_present = 0;
@@ -89,28 +135,34 @@ namespace cyp
 
 				SendHeader(serverSocket, fileHeader);
 
+				std::vector<char> buffer(MB2);
+
 				if (fileHeader.fileSize >= MB2)
 				{
-					fileBody.buffer = new char[MB2];
-
 					// For memory limit, large files are sent in 2MB units 
 					while (loopCount_present < loopCount_full)
 					{
-						file.read(fileBody.buffer, MB2);
+						file.read(buffer.data(), MB2);
+						if (file.gcount() != MB2)
+						{
+							throw "error : Unable to read file.";
+						}
 
-						SendBody(serverSocket, fileBody, MB2);
+						SendBody(serverSocket, buffer.data(), MB2);
 						++loopCount_present;
 					}
-
-					delete[] fileBody.buffer;
 				}
-				
-				fileBody.buffer = new char[remainSize];
-				file.read(fileBody.buffer, remainSize);
 
-				SendBody(serverSocket, fileBody, remainSize);
+				if (remainSize > 0)
+				{
+					file.read(buffer.data(), remainSize);
+					if (file.gcount() != static_cast<std::streamsize>(remainSize))
+					{
+						throw "error : Unable to read file.";
+					}
 
-				delete[] fileBody.buffer;
+					SendBody(serverSocket, buffer.data(), remainSize);
+				}
 			}
 			else
 			{
@@ -128,26 +180,40 @@ namespace cyp
 			SOCKET clientSocket = OpenClient(ip, port);
 
 			Packet_FileHeader fileHeader;
-			Packet_FileBody fileBody;
 			
 			char recvIdentifier[4];
 			memcpy(recvIdentifier, fileHeader.identifier, 4);
 			memset(fileHeader.identifier, '\0', 4);
-			recv(clientSocket, reinterpret_cast<char*>(&fileHeader), sizeof(Packet_FileHeader), 0);
+
+			char* headerBuffer = reinterpret_cast<char*>(&fileHeader);
+			unsigned int headerRecvSize = 0;
+			while (headerRecvSize < sizeof(Packet_FileHeader))
+			{
+				int receiveSize = recv(clientSocket, headerBuffer + headerRecvSize, static_cast<int>(sizeof(Packet_FileHeader) - headerRecvSize), 0);
+
+				if (receiveSize <= 0)
+				{
+					throw "error : FileCommunication::ReceiveFile() failed to receive header";
+				}
+
+				headerRecvSize += static_cast<unsigned int>(receiveSize);
+			}
 
 			unsigned long long totalRecvSize = 0;
 
 			// check Header.
 			if (memcmp(fileHeader.identifier, recvIdentifier, 4) == 0)
 			{
-				fileBody.buffer = new char[MB2];
+				std::vector<char> buffer(MB2);
 				std::ofstream file(saveFilePath, std::ios::binary);
 
 				if (file.is_open())
 				{
 					while (fileHeader.fileSize > totalRecvSize)
 					{
-						int receiveSize = recv(clientSocket, reinterpret_cast<char*>(fileBody.buffer), MB2, 0);
+						unsigned long long remainSize = fileHeader.fileSize - totalRecvSize;
+						int requestSize = static_cast<int>(std::min<unsigned long long>(MB2, remainSize));
+						int receiveSize = recv(clientSocket, buffer.data(), requestSize, 0);
 						
 						if (receiveSize <= 0)
 						{
@@ -162,18 +228,30 @@ namespace cyp
 
 						}
 						
-						file.write(fileBody.buffer, receiveSize);
+						file.write(buffer.data(), receiveSize);
+						if (!file)
+						{
+							throw "error : FileCommunication::ReceiveFile() failed to write file";
+						}
+
 						totalRecvSize += receiveSize;
 					
-						progress = round((double)totalRecvSize / (double)fileHeader.fileSize * 100000) / 1000;
+						progress = std::round((double)totalRecvSize / (double)fileHeader.fileSize * 100000) / 1000;
+					}
+
+					if (fileHeader.fileSize == 0)
+					{
+						progress = 100.0;
 					}
 				}
 				else
 				{
 					throw "error : Unable to open file.";
 				}
-
-				delete[] fileBody.buffer;
+			}
+			else
+			{
+				throw "error : FileCommunication::ReceiveFile() invalid file header";
 			}
 		}
 	}

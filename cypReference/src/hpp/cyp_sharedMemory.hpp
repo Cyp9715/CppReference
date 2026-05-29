@@ -20,46 +20,91 @@ namespace cyp
 		class SharedMemory
 		{
 		private:
-			void * _hmapFile;
+			HANDLE _hmapFile;
 			T* _pBuf;
+			DWORD _fileAccess;
 
 		public:
 			~SharedMemory()
 			{
-				CloseHandle(_hmapFile);
-				UnmapViewOfFile(_pBuf);
+				if (_pBuf)
+				{
+					UnmapViewOfFile(_pBuf);
+				}
+
+				if (_hmapFile)
+				{
+					CloseHandle(_hmapFile);
+				}
 			}
 
 			SharedMemory() 
 			{
 				_hmapFile = nullptr;
 				_pBuf = nullptr;
+				_fileAccess = 0;
 			}
+
+			SharedMemory(const SharedMemory&) = delete;
+			SharedMemory& operator=(const SharedMemory&) = delete;
 
 			bool Install(std::string key, DWORD fileAccess = FILE_MAP_ALL_ACCESS)
 			{
+				if (sizeof(T) > MAXDWORD)
+				{
+					return false;
+				}
+
+				if (_pBuf)
+				{
+					UnmapViewOfFile(_pBuf);
+					_pBuf = nullptr;
+				}
+
+				if (_hmapFile)
+				{
+					CloseHandle(_hmapFile);
+					_hmapFile = nullptr;
+				}
+
+				_fileAccess = 0;
+
 				_hmapFile = CreateFileMappingA(
 					INVALID_HANDLE_VALUE, NULL,
 					PAGE_READWRITE, 0,
-					64, key.c_str());
+					static_cast<DWORD>(sizeof(T)), key.c_str());
 
 				if (_hmapFile == NULL)
 					return false;
 
-				_pBuf = (T *)MapViewOfFile(_hmapFile, fileAccess, 0, 0, 0);
+				_pBuf = (T *)MapViewOfFile(_hmapFile, fileAccess, 0, 0, sizeof(T));
 
 				if (!_pBuf)
 				{
 					if (_hmapFile)
+					{
 						CloseHandle(_hmapFile);
+						_hmapFile = nullptr;
+					}
 					return false;
 				}
 
+				_fileAccess = fileAccess;
 				return true;
 			}
 
 			void Update(T* instance)
 			{
+				if (!_pBuf || !instance)
+				{
+					throw std::runtime_error("SharedMemory::Update() invalid memory");
+				}
+
+				if ((_fileAccess & (FILE_MAP_WRITE | FILE_MAP_COPY | FILE_MAP_ALL_ACCESS)) == 0)
+				{
+					throw std::runtime_error("SharedMemory::Update() memory is not writable");
+				}
+
 				CopyMemory((PVOID)_pBuf, instance, sizeof(T));
 			}
 
@@ -67,7 +112,7 @@ namespace cyp
 			{
 				if (_pBuf == nullptr)
 				{
-					// add error process
+					throw std::runtime_error("SharedMemory::GetMemory() invalid memory");
  				}
 
 				return _pBuf;

@@ -6,6 +6,8 @@ namespace cyp
 	{
 		Monitor::Monitor()
 		{
+			ZeroMemory(&displayDevice, sizeof(displayDevice));
+			ZeroMemory(&devmode, sizeof(devmode));
 			displayDevice.cb = sizeof(displayDevice);
 			devmode.dmSize = sizeof(devmode);
 		}
@@ -26,11 +28,23 @@ namespace cyp
 				std::string deviceName = displayDevice.DeviceName;
 
 				int monitorIndex = 0;
+				DISPLAY_DEVICE monitorDevice;
+				ZeroMemory(&monitorDevice, sizeof(monitorDevice));
+				monitorDevice.cb = sizeof(monitorDevice);
 
-				while (EnumDisplayDevices(deviceName.c_str(), monitorIndex++, &displayDevice, 0))
+				while (EnumDisplayDevices(deviceName.c_str(), monitorIndex++, &monitorDevice, 0))
 				{
-					EnumDisplaySettings(deviceName.c_str(), ENUM_REGISTRY_SETTINGS, &devmode);
-					info.monitorName = displayDevice.DeviceString;
+					ZeroMemory(&devmode, sizeof(devmode));
+					devmode.dmSize = sizeof(devmode);
+
+					if (!EnumDisplaySettings(deviceName.c_str(), ENUM_REGISTRY_SETTINGS, &devmode))
+					{
+						ZeroMemory(&monitorDevice, sizeof(monitorDevice));
+						monitorDevice.cb = sizeof(monitorDevice);
+						continue;
+					}
+
+					info.monitorName = monitorDevice.DeviceString;
 					info.bitsPerPel = devmode.dmBitsPerPel;
 					info.pelsWidth = devmode.dmPelsWidth;
 					info.pelsHeight = devmode.dmPelsHeight;
@@ -40,7 +54,13 @@ namespace cyp
 					info.position_y = devmode.dmPosition.y;
 
 					v_info.push_back(info);
+
+					ZeroMemory(&monitorDevice, sizeof(monitorDevice));
+					monitorDevice.cb = sizeof(monitorDevice);
 				}
+
+				ZeroMemory(&displayDevice, sizeof(displayDevice));
+				displayDevice.cb = sizeof(displayDevice);
 			}
 			
 			return v_info;

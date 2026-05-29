@@ -1,6 +1,8 @@
 #include "cyp_common.hpp"
 #include "cyp_string.hpp"
 
+#include <cctype>
+
 namespace cyp
 {
 	namespace string
@@ -19,20 +21,18 @@ namespace cyp
 
 		void ChangeStr(std::string& str, const std::string& find, const std::string& change)
 		{
+			if (find.empty())
+			{
+				return;
+			}
+
 			size_t ui_num = str.find(find);
 
-			while (true)
+			while (ui_num != std::string::npos)
 			{
-				if (ui_num == std::string::npos)
-				{
-					return;
-				}
-				else
-				{
-					str.erase(ui_num, find.size());
-					str.insert(ui_num, change);
-				}
-				ui_num = str.find(find, change.size());
+				str.erase(ui_num, find.size());
+				str.insert(ui_num, change);
+				ui_num = str.find(find, ui_num + change.size());
 			}
 		}
 
@@ -70,12 +70,20 @@ namespace cyp
 
 		void RemoveContinuousChar(std::string& str, char target)
 		{
-			for (int i = 0; i < str.length() - 1; ++i)
+			if (str.size() < 2)
+			{
+				return;
+			}
+
+			for (size_t i = 0; i + 1 < str.size();)
 			{
 				if (str[i] == target && str[i + 1] == target)
 				{
 					str.erase(i, 1);
-					--i;
+				}
+				else
+				{
+					++i;
 				}
 			}
 		}
